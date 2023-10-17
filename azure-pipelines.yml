@@ -10,6 +10,7 @@ resources:
 
 variables:
   imageName: 'test'
+  version: '0.0.0'
 
 stages:
   - stage: Build
@@ -20,12 +21,22 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          - checkout: self
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '16.x'
+            displayName: 'Install Node.js'
+
           - script: |
-              echo "Extracting version from package.json"
-              VERSION_NUMBER=$(grep '"version"' package.json | sed -E 's/.*"([^"]+)".*/\1/')
-              echo "Version: $VERSION_NUMBER"
-              echo "##vso[task.setvariable variable=versionNumber]$VERSION_NUMBER"
+              npm install
+            displayName: 'Install dependencies'
+
+          - script: |
+              npx semantic-release
+            displayName: 'Run Semantic Release'
+
+          - script: |
+              echo "##vso[task.setvariable variable=version]$(cat VERSION)"
+            displayName: 'Set the new version'
 
           - task: Docker@2
             displayName: Build and push
@@ -34,4 +45,4 @@ stages:
               repository: 'danvoidll/$(imageName)'
               dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
               command: 'buildAndPush'
-              tags: $(versionNumber)
+              tags: $(version)
